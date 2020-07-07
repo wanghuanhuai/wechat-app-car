@@ -1,5 +1,7 @@
-const WXAPI = require('apifm-wxapi')
-
+import jwtDecode from '../miniprogram_npm/jwt-decode/index.js';
+import request from './request.js';
+const config = require('./config');
+const loginUrl = config.loginUrl;
 async function checkSession(){
   return new Promise((resolve, reject) => {
     wx.checkSession({
@@ -12,24 +14,88 @@ async function checkSession(){
     })
   })
 }
+async function getUserId(){
+  return new Promise((resolve, reject) => {
+    const token = wx.getStorageSync('token')
+    if (!token) {
+      return reject();
+    }
+    try {
+      const userInfo = jwtDecode(token).userInfo;
+      if (!userInfo) {
+        return reject();
+      }
+      console.log(userInfo)
+      return resolve(userInfo.openId);
+    } catch{
+      return reject();
+    }
 
+
+  });
+  
+}
 // 检测登录状态，返回 true / false
 async function checkHasLogined() {
   const token = wx.getStorageSync('token')
   if (!token) {
     return false
   }
+  try {
+    const userInfo = jwtDecode(token).userInfo;
+      if (!userInfo) {
+        return false;
+      }
+  　} catch (error) {
+    return false;
+  } 
+  
   const loggined = await checkSession()
   if (!loggined) {
     wx.removeStorageSync('token')
     return false
   }
-  const checkTokenRes = await WXAPI.checkToken(token)
-  if (checkTokenRes.code != 0) {
-    wx.removeStorageSync('token')
-    return false
-  }
   return true
+}
+
+// const checkToken= new Promise((resolve, reject) => {
+//         const token = wx.getStorageSync('token')
+//         if (!token) {
+//           reject(false);
+//         }
+//         const userInfo = jwtDecode(token).userInfo;
+//         if (!userInfo) {
+//           reject(false);
+//         }
+//         const loggined =  checkSession()
+//         if (!loggined) {
+//           wx.removeStorageSync('token')
+//           reject(false);
+//         }
+//     resolve(true);
+//   })
+
+
+
+async function isLogin(){
+  // checkToken.then(isLogin =>{
+  //   console.log('pro:'+isLogin);
+
+  // })
+
+
+  checkHasLogined().then(isLogin => {
+    console.log(isLogin)
+    //未登录
+    if (!isLogin) {
+      //返回登录页
+      wx.switchTab({
+        url: loginUrl,
+      })
+    }
+  });
+ // const isLogin = checkLogin();
+ 
 }
 
 async function wxaCode(){
@@ -65,31 +131,15 @@ async function getUserInfo() {
 
 async function login(page){
   const _this = this
-  wx.login({
-    success: function (res) {
-      WXAPI.login_wx(res.code).then(function (res) {        
-        if (res.code == 10000) {
-          // 去注册
-          //_this.register(page)
-          return;
-        }
-        if (res.code != 0) {
-          // 登录错误
-          wx.showModal({
-            title: '无法登录',
-            content: res.msg,
-            showCancel: false
-          })
-          return;
-        }
-        wx.setStorageSync('token', res.data.token)
-        wx.setStorageSync('uid', res.data.uid)
-        if ( page ) {
-          page.onShow()
-        }
-      })
-    }
-  })
+  console.log('page');
+  console.log(page);
+  const _token = wx.getStorageSync('token');
+  //const userInfo_ = jwtDecode(_token).userInfo;
+
+ // console.log(userInfo_);
+  if (page) {
+    page.onShow()
+  }
 }
 
 async function register(page) {
@@ -99,22 +149,98 @@ async function register(page) {
       let code = res.code; // 微信登录接口返回的 code 参数，下面注册接口需要用到
       wx.getUserInfo({
         success: function (res) {
-          let iv = res.iv;
-          let encryptedData = res.encryptedData;
-          let referrer = '' // 推荐人
-          let referrer_storge = wx.getStorageSync('referrer');
-          if (referrer_storge) {
-            referrer = referrer_storge;
-          }
-          // 下面开始调用注册接口
-          WXAPI.register_complex({
-            code: code,
-            encryptedData: encryptedData,
-            iv: iv,
-            referrer: referrer
-          }).then(function (res) {
-            _this.login(page);
+          wx.showLoading({
+            title: '正在登录中',
           })
+          //3.请求自己的服务器，解密用户信息 获取unionId等加密信息  
+          const header = {
+            'Authorization': 'Basic bWluaVdlaGNhdDpwYXNzd29yZA==',
+            'content-type': 'application/x-www-form-urlencoded'
+          };
+          const data = {
+            encryptedData: res.encryptedData,
+            iv: res.iv,
+            userInfo: res.rawData,
+            code: code,
+            signature: res.signature
+          };
+          request(header,'/auth/api/login/mini',data, 'POST').then(data => {
+             // console.info(data);
+              if(data){
+                if (data.result == 'ok') {
+                  const accessToken = data.data;
+                  console.log(accessToken);
+                  const _token = JSON.stringify(accessToken.value);
+                  const _refreshToken = JSON.stringify(accessToken.refreshToken.value);
+                  //存入本地缓存
+                  wx.setStorageSync('token', JSON.parse(_token))
+                  wx.setStorageSync('refreshToken', JSON.parse(_refreshToken))
+                  //解析获取用户信息
+                  const userInfo_ = jwtDecode(_token).userInfo;
+                  _this.login(page);
+                } else {
+                  wx.showModal({
+                    title: '登录失败',
+                    content: '无法获取服务器密令',
+                    showCancel: false
+                  })
+                  return;
+                }
+              }
+             
+          });
+          // request({
+          //   url: '/auth/api/login/mini',
+          //   method: 'POST',
+          //   header: {
+          //     'Authorization': 'Basic bWluaVdlaGNhdDpwYXNzd29yZA==',
+          //     'content-type': 'application/x-www-form-urlencoded'
+          //   },
+          //   data: {
+          //     encryptedData: res.encryptedData,
+          //     iv: res.iv,
+          //     userInfo: res.rawData,
+          //     code: code,
+          //     signature: res.signature
+          //   },
+          //   success: function (data) {
+          //   //  console.log(data.data);
+          //     //4.解密成功后 获取自己服务器返回的结果  
+          //     if (data.data.result == 'ok') {
+          //       const _token = JSON.stringify(data.data.success);
+          //       //存入本地缓存
+          //       wx.setStorageSync('token', JSON.parse(_token))
+          //       //解析获取用户信息
+          //       const userInfo_ = jwtDecode(_token).userInfo;
+
+          //       //   var userInfo_ = data.data.userInfo;
+          //       //app.globalData.userInfo = userInfo_;
+          //       // console.log(app.globalData.userInfo)
+          //       _this.login(page);
+          //     } else {
+          //       console.log('解密失败')
+          //     }
+
+          //   },
+          //   fail: function () {
+          //     // 登录错误
+          //     wx.showModal({
+          //       title: '无法登录',
+          //       content: '服务出错,请稍后尝试',
+          //       showCancel: false
+          //     })
+          //     return;
+          //   }
+          // })
+        },
+        fail: function () {
+          // 登录错误
+          wx.showModal({
+            title: '获取用户失败',
+            content: '服务出错,请稍后尝试',
+            showCancel: false
+          })
+          return;
         }
       })
     }
@@ -122,8 +248,17 @@ async function register(page) {
 }
 
 function loginOut(){
-  wx.removeStorageSync('token')
-  wx.removeStorageSync('uid')
+  const token = wx.getStorageSync('token');
+  wx.removeStorageSync('token');
+  wx.removeStorageSync('refreshToken');
+  wx.showLoading({
+    title: '正在退出',
+  })
+  request(null, '/auth/user/logout', { token: token}, 'POST').then(data => {
+    if (data) {
+      
+    }
+  });
 }
 
 async function checkAndAuthorize (scope) {
@@ -180,5 +315,7 @@ module.exports = {
   login: login,
   register: register,
   loginOut: loginOut,
-  checkAndAuthorize: checkAndAuthorize
+  checkAndAuthorize: checkAndAuthorize,
+  isLogin: isLogin,
+  getUserId: getUserId
 }

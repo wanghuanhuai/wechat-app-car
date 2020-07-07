@@ -1,53 +1,85 @@
 <view class="swiper-container">
   <swiper indicator-dots="true" indicator-active-color="#fff" autoplay circular>
-    <swiper-item wx:for="{{banners}}" wx:key="id">
+    <!-- <swiper-item wx:for="{{banners}}" wx:key="id">
       <image  mode="aspectFill" bindtap="tapBanner" data-url="{{item.linkUrl}}" src="{{item.picUrl}}" />
+    </swiper-item> -->
+     <swiper-item   wx:for="{{imageList}}" wx:key="imageId">
+      <image  mode="aspectFill" bindtap="tapBanner" data-url="{{imageUrl+item.imageMaxId}}" src="{{imageUrl+item.imageId}}" />
     </swiper-item>
   </swiper>
   <view class="search">
     <input type="text" placeholder="输入搜索关键词" value="{{name}}" bindinput="bindinput" bindconfirm="bindconfirm"></input>
-    <image src="/images/icon/search.svg"></image>
+    <image src="/images/icon/search.svg" bindtap="goSearch"></image>
   </view>
 </view>
-<view class="notice-box" wx:if="{{noticeList}}">
-  <view class="notice">
-    <image class="notice_icon" src="/images/notice.png"></image>
-    <swiper class="notice_swiper" vertical autoplay circular>
-      <navigator wx:for="{{noticeList.dataList}}" wx:key="id" url="/pages/notice/show?id={{item.id}}">
-        <swiper-item>
-          <view class="notice_itemr">{{item.title}}</view>
-        </swiper-item>
-      </navigator>
-    </swiper>
+<view  >
+  <view >
+    <van-notice-bar
+    left-icon="/images/notice.png"
+    color="#e64340"
+    text="车位查询系统上线,若有任何建议,可发送邮件到493516542@qq.com"
+    bind:click="onNotice"
+  >
+    <view slot="right-icon" class="more">
+      <navigator url="/pages/notice/index">更多></navigator>
+    </view>
+  </van-notice-bar>
   </view>
-  <view class="more"><navigator url="/pages/notice/index">更多 ></navigator></view>
 </view>
-<view class="category-box">
-  <view class="category-list" wx:for="{{categories}}" wx:key="id">
-    <view class="category-column {{activeCategoryId == item.id ? 'type-item-on' : ''}}" bindtap="tabClick" id="{{item.id}}">
+<!-- <view class="category-box">
+   <view class="category-list" wx:for="{{categories}}" wx:key="id">
+    <view class="category-column" bindtap="tabClick" id="{{item.id}}">
       <image mode="aspectFill" class="category-imgbox" src="{{item.icon}}"></image>
       <view class="category-title">{{item.name}}</view>
     </view>          
+  </view>  
+  <view class="category-list">
+    <view class="category-column" bindtap="tabClick" id="1">
+      <image mode="aspectFill" class="category-imgbox" src="/images/app/car_park.png"></image>
+      <view class="category-title">出租的车位</view>
+    </view>                  
   </view>
-</view>
-<view class="container">
-  <block wx:for="{{categories}}" wx:key="id" wx:if="{{item.goods}}">
-    <view class="category-goods-title">
-      <view class="weui-panel__hd">{{item.name}}</view>
-      <view class="more"><navigator url="/pages/goods/list?categoryId={{item.id}}">更多 ></navigator></view>
-    </view>
-    <view class="goods-container">
-      <view class="goods-box" wx:for="{{item.goods}}" wx:key="id" bindtap="toDetailsTap" data-id="{{item.id}}">
-        <view class="img-box">
-          <image src="{{item.pic}}" class="image" mode="aspectFill" lazy-load="true" />
-        </view>
-        <view class="goods-title">{{item.name}}</view>
-        <view style='display:flex;'>
-          <view class="goods-price">¥ {{item.minPrice}}</view>
-          <view wx:if="{{item.originalPrice && item.originalPrice > 0}}" class="goods-price" style='color:#aaa;text-decoration:line-through'>¥ {{item.originalPrice}}</view>
-        </view>
-      </view>
-    </view>
-  </block>
-</view>
+    <view class="category-list">
+    <view class="category-column" bindtap="tabClick" id="2">
+      <image mode="aspectFill" class="category-imgbox" src="/images/app/car_check_in.png"></image>
+      <view class="category-title">登记出租车位</view>
+    </view>                  
+  </view>
+   <view class="category-list">
+    <view class="category-column" bindtap="tabClick" id="2">
+      <image mode="aspectFill" class="category-imgbox" src="/images/app/car_park.png"></image>
+      <view class="category-title">发布求租</view>
+    </view>                  
+  </view>
+</view> -->
+
+<van-grid clickable column-num="4">
+  <van-grid-item
+    icon="/images/app/car_park.png"
+    link-type="navigateTo"
+    url="/pages/park/list"
+    info="{{ parkCount >0 ? parkCount : null }}"
+    text="车位查询"
+  />
+  <van-grid-item
+    icon="/images/app/write_car_info.png"
+    link-type="navigateTo"
+    url="/pages/park/park-add"
+    text="添加车位"
+  />
+  <van-grid-item
+    icon="/images/app/publish_info.png"
+    link-type="navigateTo"
+    url="/pages/be-continued/index"
+    text="待开放"
+  />
+    <van-grid-item
+    icon="/images/app/message.png"
+    link-type="switchTab"
+    info="{{ myMessageCount >0 ? myMessageCount : null}}"
+    url="/pages/message/index"
+    text="接收的留言"
+  />
+</van-grid>
+
 

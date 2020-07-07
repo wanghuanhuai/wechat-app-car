@@ -86,9 +86,9 @@
   overflow: hidden;
   color: #e64340;
 }
-.notice-box .more {
-  color: #666;
-  font-size: 24rpx;
+.notice-box {
+    display: flex;
+    flex-direction: row;
 }
 
 .container {

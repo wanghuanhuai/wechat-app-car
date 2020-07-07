@@ -1,115 +1,62 @@
 const app = getApp()
 const CONFIG = require('../../config.js')
-const WXAPI = require('apifm-wxapi')
 const AUTH = require('../../utils/auth')
 const TOOLS = require('../../utils/tools.js')
+import jwtDecode from '../../miniprogram_npm/jwt-decode/index.js';
+const config = require('../../utils/config');
+const loginUrl = config.loginUrl;
+import request from '../../utils/request.js';
+
 
 Page({
 	data: {
     wxlogin: true,
-
-    balance:0.00,
-    freeze:0,
-    score:0,
-    growth:0,
-    score_sign_continuous:0,
-    rechargeOpen: false // 是否开启充值[预存]功能
+    myMessage:0,
+    myPark:0,
   },
 	onLoad() {
 	},	
   onShow() {
     const _this = this
-    const order_hx_uids = wx.getStorageSync('order_hx_uids')
-    this.setData({
-      version: CONFIG.version,
-      vipLevel: app.globalData.vipLevel,
-      order_hx_uids
-    })
+    // const order_hx_uids = wx.getStorageSync('order_hx_uids')
+    // this.setData({
+    //   version: CONFIG.version,
+    //   vipLevel: app.globalData.vipLevel,
+    //   order_hx_uids
+    // })
     AUTH.checkHasLogined().then(isLogined => {
       this.setData({
         wxlogin: isLogined
-      })
-      if (isLogined) {        
-        _this.getUserApiInfo();
-        _this.getUserAmount();
-      }
+      })   
+      _this.getUserApiInfo();
+      _this.getCount();
     })
-    // 获取购物车数据，显示TabBarBadge
-    TOOLS.showTabBarBadge();
   },
   aboutUs : function () {
     wx.showModal({
       title: '关于我们',
-      content: '本系统基于开源小程序商城系统 https://github.com/EastWorld/wechat-app-mall 搭建，祝大家使用愉快！',
+      content: '祝大家使用愉快！',
       showCancel:false
     })
   },
   loginOut(){
     AUTH.loginOut()
     wx.reLaunch({
-      url: '/pages/my/index'
-    })
-  },
-  getPhoneNumber: function(e) {
-    if (!e.detail.errMsg || e.detail.errMsg != "getPhoneNumber:ok") {
-      wx.showModal({
-        title: '提示',
-        content: e.detail.errMsg,
-        showCancel: false
-      })
-      return;
-    }
-    WXAPI.bindMobileWxa(wx.getStorageSync('token'), e.detail.encryptedData, e.detail.iv).then(res => {
-      if (res.code === 10002) {
-        this.setData({
-          wxlogin: false
-        })
-        return
-      }
-      if (res.code == 0) {
-        wx.showToast({
-          title: '绑定成功',
-          icon: 'success',
-          duration: 2000
-        })
-        this.getUserApiInfo();
-      } else {
-        wx.showModal({
-          title: '提示',
-          content: res.msg,
-          showCancel: false
-        })
-      }
+      url: loginUrl
     })
   },
   getUserApiInfo: function () {
+    let _data = {}
     var that = this;
-    WXAPI.userDetail(wx.getStorageSync('token')).then(function (res) {
-      if (res.code == 0) {
-        let _data = {}
-        _data.apiUserInfoMap = res.data
-        if (res.data.base.mobile) {
-          _data.userMobile = res.data.base.mobile
-        }
-        if (that.data.order_hx_uids && that.data.order_hx_uids.indexOf(res.data.base.id) != -1) {
-          _data.canHX = true // 具有扫码核销的权限
-        }
-        that.setData(_data);
-      }
-    })
-  },
-  getUserAmount: function () {
-    var that = this;
-    WXAPI.userAmount(wx.getStorageSync('token')).then(function (res) {
-      if (res.code == 0) {
-        that.setData({
-          balance: res.data.balance.toFixed(2),
-          freeze: res.data.freeze.toFixed(2),
-          score: res.data.score,
-          growth: res.data.growth
-        });
-      }
-    })
+    const token = wx.getStorageSync('token')
+    if (token){
+      const userInfo = jwtDecode(token).userInfo;
+      _data.apiUserInfoMap = userInfo;
+      that.setData(_data);
+    }else{
+      _data.apiUserInfoMap = {};
+      that.setData(_data);
+    }
   },
   goAsset: function () {
     wx.navigateTo({
@@ -121,9 +68,9 @@ Page({
       url: "/pages/score/index"
     })
   },
-  goOrder: function (e) {
+  goMyCar: function (e) {
     wx.navigateTo({
-      url: "/pages/order-list/index?type=" + e.currentTarget.dataset.type
+      url: "/pages/my-park/index?type=" + e.currentTarget.dataset.type
     })
   },
   cancelLogin() {
@@ -137,30 +84,25 @@ Page({
     })
   },
   processLogin(e) {
-    if (!e.detail.userInfo) {
-      wx.showToast({
-        title: '已取消',
-        icon: 'none',
-      })
-      return;
-    }
     AUTH.register(this);
   },
-  scanOrderCode(){
-    wx.scanCode({
-      onlyFromCamera: true,
-      success(res) {
-        wx.navigateTo({
-          url: '/pages/order-details/scan-result?hxNumber=' + res.result,
-        })
-      },
-      fail(err) {
-        console.error(err)
-        wx.showToast({
-          title: err.errMsg,
-          icon: 'none'
+  getCount() {
+    AUTH.checkHasLogined().then(data => {
+      if (data) {
+        request(null, '/wx/v1/my/count', null, 'GET').then(data => {
+          if(data){
+            if (data.result == 'ok') {
+              this.setData({
+                myMessage: data.data.myMessage,
+                myPark: data.data.myPark,
+              })
+
+            }
+          }
+          
         })
       }
     })
-  },
+  }
+  
 })
